@@ -1,0 +1,37 @@
+name: Build unsigned Folia IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build iOS app (unsigned; will be signed on Windows with Sideloadly)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project FoliaApp.xcodeproj \
+            -scheme FoliaApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          APP_PATH="build/Build/Products/Release-iphoneos/FoliaApp.app"
+          test -d "$APP_PATH"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/FoliaApp.app
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent Payload Folia-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folia-unsigned-IPA
+          path: Folia-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
